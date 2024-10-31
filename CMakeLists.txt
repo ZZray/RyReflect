@@ -1,35 +1,44 @@
-cmake_minimum_required(VERSION 3.10)
+ï»¿cmake_minimum_required(VERSION 3.10)
 project(RyReflect)
 
-# ÉèÖÃ C++ ±ê×¼
+# è®¾ç½® C++ æ ‡å‡†
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# Ìí¼ÓÑ¡ÏîÒÔÆôÓÃ»ò½ûÓÃQtÖ§³Ö
-set(USE_QT OFF)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT_DIR}/${CMAKE_BUILD_TYPE}/RUNTIME/)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT_DIR}/${CMAKE_BUILD_TYPE}/LIBRARY/)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT_DIR}/${CMAKE_BUILD_TYPE}/LIBRARY/)
+# æ·»åŠ é€‰é¡¹ä»¥å¯ç”¨æˆ–ç¦ç”¨Qtæ”¯æŒ
+set(USE_QT ON)
 
 if(USE_QT)
     message("Enable Qt support")
     set(CMAKE_PREFIX_PATH "D:/Lib/Qt6.8/6.8.0/msvc2022_64")
-    # ²éÕÒQt°ü
+    # æŸ¥æ‰¾QtåŒ…
     find_package(Qt6 COMPONENTS Core REQUIRED)
     if (NOT Qt6_FOUND)
         find_package(Qt5 5.15 COMPONENTS Core REQUIRED)
     endif()
 
-    # Ìí¼ÓQt¶¨Òå
+    # æ·»åŠ Qtå®šä¹‰
     add_definitions(-DRY_USE_QT)
 endif()
 
-# Ìí¼Ó¿ÉÖ´ĞĞÎÄ¼ş
+# æ·»åŠ å¯æ‰§è¡Œæ–‡ä»¶
 add_executable(${PROJECT_NAME} main.cpp RyReflect.h)
 add_executable(Generate_${PROJECT_NAME} "generate.cpp")
 
 if(USE_QT)
-    # Á´½ÓQt¿â
+    # é“¾æ¥Qtåº“
     if (Qt6_FOUND)
         target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::Core)
+
     else()
         target_link_libraries(${PROJECT_NAME} PRIVATE Qt5::Core)
     endif()
+
+    set(QtLocation ${CMAKE_PREFIX_PATH})
+if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+    set(LOCAL_DEPLOY_CMD "${QtLocation}/bin/windeployqt.exe " "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${PROJECT_NAME}.exe")
+endif()
+message("-- App: Local deploy command: " ${LOCAL_DEPLOY_CMD})
 endif()

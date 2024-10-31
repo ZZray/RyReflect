@@ -1,36 +1,83 @@
-/**
+ï»¿/**
  * @author rayzhang
- * @date 2024Äê10ÔÂ31ÈÕ
- * @description ²âÊÔ
+ * @date 2024å¹´10æœˆ31æ—¥
+ * @description æµ‹è¯•
  */
 #include "RyReflect.h"
 #include <string>
 #include <iostream>
 
-struct User {
-	std::string name;
-	double age;
-	RY_REFLECTABLE(name, age)
-};
-
-int main(int argc, char* argv[])
+void testForEach()
 {
-	User user{ .name = "Ray", .age = 20 };
-    // ±éÀú³ÉÔ±²¢Êä³ö
-	RyReflect::forEach(user, []<typename T0>(const auto & name, T0 & value) {
+    struct User
+    {
+        std::string name;
+        double age;
+
+        RY_REFLECTABLE(User, name, age)
+    };
+    User user{.name = "Ray", .age = 20};
+    // éå†æˆå‘˜å¹¶è¾“å‡º
+    RyReflect::forEach(user, []<typename T0>(const auto& name, T0& value) {
         std::cout << name << " = " << value << std::endl;
         if (name == "age") {
             if constexpr (std::is_same_v<std::decay_t<T0>, double>) {
-                value = 21; // ĞŞ¸Ä³ÉÔ±Öµ
+                value = 21; // ä¿®æ”¹æˆå‘˜å€¼
             }
         }
         else if (name == "name") {
             if constexpr (std::is_same_v<std::decay_t<T0>, std::string>) {
-                value = "Ray2"; // ĞŞ¸Ä³ÉÔ±Öµ
+                value = "Ray2"; // ä¿®æ”¹æˆå‘˜å€¼
             }
         }
     });
 
-	std::cout << "user.age = " << user.age << std::endl;
-	return 0;
+    std::cout << "user.age = " << user.age << std::endl;
+}
+
+void testJson()
+{
+    struct Address
+    {
+        std::string street;
+        std::string city;
+
+        RY_REFLECTABLE(Address, street, city)
+    };
+
+    struct User
+    {
+        std::string name;
+        int age;
+        bool isActive;
+        Address address;
+
+        RY_REFLECTABLE(User, name, age, isActive, address)
+    };
+    User user{.name = "Ray", .age = 30, .isActive = true, .address = Address{.street = "123 Main St", .city = "Anytown"}};
+
+    // è½¬æ¢ä¸ºJSON
+    QJsonObject jsonObj = user.toJson();
+
+#ifdef RY_USE_QT
+    qDebug() << "JSON:" << jsonObj;
+#else
+    std::cout << "JSON created (output format depends on your JsonObject implementation)" << std::endl;
+#endif
+
+    // ä»JSONåˆ›å»ºæ–°å¯¹è±¡
+    User newUser = User::fromJson(jsonObj);
+
+#ifdef RY_USE_QT
+    qDebug() << "Reconstructed user:" << QString::fromStdString(newUser.name) << newUser.age << newUser.isActive;
+    qDebug() << "Address:" << QString::fromStdString(newUser.address.street) << QString::fromStdString(newUser.address.city);
+#else
+    std::cout << "Reconstructed user: " << newUser.name << " " << newUser.age << " " << newUser.isActive << std::endl;
+    std::cout << "Address: " << newUser.address.street << ", " << newUser.address.city << std::endl;
+#endif
+}
+int main(int argc, char* argv[])
+{
+    testJson();
+    return 0;
 }
