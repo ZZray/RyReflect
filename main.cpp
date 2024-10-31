@@ -6,6 +6,8 @@
 #include "RyReflect.h"
 #include <string>
 #include <iostream>
+#include <QJsonDocument>
+#include <set>
 
 void testForEach()
 {
@@ -37,44 +39,72 @@ void testForEach()
 
 void testJson()
 {
-    struct Address
-    {
-        std::string street;
-        std::string city;
-
-        RY_REFLECTABLE(Address, street, city)
-    };
-
-    struct User
+    struct Person
     {
         std::string name;
         int age;
-        bool isActive;
-        Address address;
 
-        RY_REFLECTABLE(User, name, age, isActive, address)
+        RY_REFLECTABLE(Person, name, age)
     };
-    User user{.name = "Ray", .age = 30, .isActive = true, .address = Address{.street = "123 Main St", .city = "Anytown"}};
 
-    // 转换为JSON
-    QJsonObject jsonObj = user.toJson();
+    // 定义另一个包含容器的结构体
+    struct Team
+    {
+        std::string teamName;
+        std::vector<Person> memberVector;
+        std::list<Person> memberList;
+        QVector<std::string> memberNames;
 
+        RY_REFLECTABLE(Team, teamName, memberVector, memberList, memberNames)
+    };
+    // 创建测试数据
+    Person person1{ "Alice", 30 };
+    Person person2{ "Bob", 25 };
+    std::vector personVector{ person1, person2 };
+    std::list personList{ person1, person2 };
+    QVector<std::string> nameSet{ "Alice", "Bob" };
+
+    Team team{ "Developers", personVector, personList, nameSet };
+
+    // 序列化为Json
+    RyReflect::JsonObject teamJson = team.toJson();
+
+    // 输出序列化结果
+    std::cout << "Serialized Json:" << std::endl;
 #ifdef RY_USE_QT
-    qDebug() << "JSON:" << jsonObj;
+    QJsonDocument doc(teamJson);
+    QString jsonString = doc.toJson(QJsonDocument::Indented);
+    std::cout << jsonString.toStdString() << std::endl;
 #else
-    std::cout << "JSON created (output format depends on your JsonObject implementation)" << std::endl;
+    // 简单地输出 JsonObject，实际应用中应实现 JsonObject 到字符串的转换
+    // 这里为了示例，直接输出键值对
+    for (const auto& [key, value] : teamJson) {
+        std::cout << key << ": ... " << std::endl; // 简化输出
+    }
 #endif
 
-    // 从JSON创建新对象
-    User newUser = User::fromJson(jsonObj);
+    // 反序列化回对象
+    Team newTeam = Team::fromJson(teamJson);
 
-#ifdef RY_USE_QT
-    qDebug() << "Reconstructed user:" << QString::fromStdString(newUser.name) << newUser.age << newUser.isActive;
-    qDebug() << "Address:" << QString::fromStdString(newUser.address.street) << QString::fromStdString(newUser.address.city);
-#else
-    std::cout << "Reconstructed user: " << newUser.name << " " << newUser.age << " " << newUser.isActive << std::endl;
-    std::cout << "Address: " << newUser.address.street << ", " << newUser.address.city << std::endl;
-#endif
+    // 输出反序列化结果
+    std::cout << "Deserialized Object:" << std::endl;
+    std::cout << "Team Name: " << newTeam.teamName << std::endl;
+
+    std::cout << "Member Vector:" << std::endl;
+    for (const auto& member : newTeam.memberVector) {
+        std::cout << "Member Name: " << member.name << ", Age: " << member.age << std::endl;
+    }
+
+    std::cout << "Member List:" << std::endl;
+    for (const auto& member : newTeam.memberList) {
+        std::cout << "Member Name: " << member.name << ", Age: " << member.age << std::endl;
+    }
+
+    std::cout << "Member Names Set:" << std::endl;
+    for (const auto& name : newTeam.memberNames) {
+        std::cout << "Member Name: " << name << std::endl;
+    }
+
 }
 int main(int argc, char* argv[])
 {

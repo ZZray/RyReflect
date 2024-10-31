@@ -17,12 +17,29 @@
 #include <QJsonArray>
 #include <QJsonValue>
 #include <QString>
+#include <QJsonDocument>
 #endif
 
 namespace RyReflect
 {
 template <typename>
 inline constexpr bool always_false = false;
+
+// 判断类型是否是容器
+template <typename T, typename = void>
+struct is_container : std::false_type
+{
+};
+
+template <typename T>
+struct is_container<
+    T,
+    std::void_t<
+    decltype(std::declval<T>().begin()),
+    decltype(std::declval<T>().end()),
+    typename T::value_type>> : std::true_type
+{
+};
 
 // 判断类型 T 是否可以使用 forEach
 template <typename T>
@@ -2275,6 +2292,13 @@ using JsonObject = std::map<std::string, JsonValue>;
 using JsonArray  = std::vector<JsonValue>;
 #endif
 
+// 前置声明
+template <typename Container>
+Container fromJsonArray(const JsonArray& jsonArray);
+
+template <typename Container>
+JsonArray toJsonArray(const Container& container);
+
 //  将基本类型转换为JsonValue的辅助函数
 template <typename T>
 JsonValue toJsonValue(const T& value)
@@ -2292,6 +2316,10 @@ JsonValue toJsonValue(const T& value)
 #else
         return JsonValue{value};
 #endif
+    }
+    else if constexpr (is_container<T>::value) {
+        // 对于容器，调用 toJsonArray
+        return toJsonArray(value);
     }
     else if constexpr (ForEachable<T>) {
         // 对于复杂类型，调用其 toJson 方法
@@ -2342,10 +2370,42 @@ T fromJsonValue(const JsonValue& jsonValue)
         return T::fromJson(std::get<JsonObject>(jsonValue.value));
 #endif
     }
+    else if constexpr (is_container<T>::value) {
+        // 对于容器，调用 fromJsonArray
+#ifdef RY_USE_QT
+        return fromJsonArray<T>(jsonValue.toArray());
+#else
+        return fromJsonArray<T>(std::get<JsonArray>(jsonValue.value));
+#endif
+    }
     else {
         static_assert(always_false<T>, "Unsupported type in fromJsonValue");
     }
 }
+
+// 将数组转换为JsonArray的辅助函数
+template <typename Container>
+JsonArray toJsonArray(const Container& container)
+{
+    JsonArray jsonArray;
+    for (const auto& item : container) {
+        jsonArray.push_back(toJsonValue(item));
+    }
+    return jsonArray;
+}
+
+// 从JsonArray转换为容器的辅助函数
+template <typename Container>
+Container fromJsonArray(const JsonArray& jsonArray)
+{
+    using T = typename Container::value_type;
+    Container container;
+    for (const auto& jsonValue : jsonArray) {
+        container.insert(container.end(), fromJsonValue<T>(jsonValue));
+    }
+    return container;
+}
+
 // 定义RY_REFLECTABLE宏，用于在结构体中声明反射所需的成员函数
 #define RY_REFLECTABLE(TypeName, ...)                                                                                                                                                                  \
     auto getMemberValues()                                                                                                                                                                             \
@@ -2393,5 +2453,6 @@ T fromJsonValue(const JsonValue& jsonValue)
         }                                                                                                                                                                                              \
         return obj;                                                                                                                                                                                    \
     }
+    
 
 } // namespace RyReflect
