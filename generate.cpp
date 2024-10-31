@@ -1,121 +1,270 @@
-/**
+ï»¿/**
  * @author rayzhang
- * @date 2024Äê10ÔÂ31ÈÕ
- * @description ÓÃÀ´Éú³É´úÂë
+ * @date 2024å¹´10æœˆ31æ—¥
+ * @description ç”Ÿæˆä»£ç æ–‡ä»¶çš„ç¨‹åº
  */
 #include <iostream>
 #include <fstream>
 #include <string>
-#include <ctime>
+#include <sstream>
 
-  // »ñÈ¡µ±Ç°ÈÕÆÚ×Ö·û´®µÄº¯Êı
-std::string getCurrentDate() {
-    time_t t = time(nullptr);
-    tm* now = localtime(&t);
-    char buf[64];
-    strftime(buf, sizeof(buf), "%YÄê%mÔÂ%dÈÕ", now);
-    return std::string(buf);
+// ä¿ç•™çš„æ–‡ä»¶å¤´éƒ¨å†…å®¹
+const std::string header = R"(
+
+/**
+ * @author rayzhang
+ * @date 2024å¹´10æœˆ31æ—¥
+ * @description ç”Ÿæˆä»£ç æ–‡ä»¶çš„ç¨‹åº
+ * @github https://github.com/ZZray/RyReflect.git
+ */
+#pragma once
+#include <map>
+#include <string>
+#include <utility>
+#include <variant>
+#include <vector>
+#include <concepts>
+// æ£€æŸ¥æ˜¯å¦å®šä¹‰äº†RY_USE_QTå®æ¥å†³å®šæ˜¯å¦ä½¿ç”¨Qt
+#ifdef RY_USE_QT
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QJsonValue>
+#include <QString>
+#endif
+
+namespace RyReflect
+{
+template <typename>
+inline constexpr bool always_false = false;
+
+// åˆ¤æ–­ç±»å‹ T æ˜¯å¦å¯ä»¥ä½¿ç”¨ forEach
+template <typename T>
+concept ForEachable = requires(T t) {
+    {
+        std::remove_cvref_t<T>::getMemberNames()
+    };
+    {
+        t.getMemberValues()
+    };
+    {
+        std::tuple_size_v<decltype(std::remove_cvref_t<T>::getMemberNames())>
+    };
+};
+
+template <typename T, typename F, std::size_t... I>
+void forEachImpl(T&& obj, F&& f, std::index_sequence<I...>)
+{
+    using U     = std::remove_reference_t<T>;
+    auto names  = U::getMemberNames();
+    auto values = obj.getMemberValues();
+    // é€šè¿‡å‚æ•°åŒ…å±•å¼€ï¼Œä¾æ¬¡è°ƒç”¨ä¼ å…¥çš„å‡½æ•°f
+    (f(std::get<I>(names), std::get<I>(values)), ...);
 }
 
-int main() {
-    int N;
+// éå†ç»“æ„ä½“çš„æˆå‘˜åç§°å’Œå€¼
+template <ForEachable T, typename F>
+void forEach(T&& obj, F&& f)
+{
+    using U          = std::remove_reference_t<T>;
+    constexpr auto N = std::tuple_size_v<decltype(U::getMemberNames())>;
+    forEachImpl(std::forward<T>(obj), std::forward<F>(f), std::make_index_sequence<N>{});
+}
 
-    // ÌáÊ¾ÓÃ»§ÊäÈëĞèÒªÉú³ÉµÄºê¶¨ÒåÊıÁ¿
-    std::cout << "ÇëÊäÈëÒªÖ§³ÖµÄ×î´ó²ÎÊıÊıÁ¿£¨ÀıÈç64£©£º";
-    std::cin >> N;
+// å®šä¹‰è¾…åŠ©å®ï¼Œå°†å˜é‡åè½¬æ¢ä¸ºå­—ç¬¦ä¸²
+#define RYREFLECT_STRINGIZE(x) #x
+// å±•å¼€å®å‚æ•°ï¼Œè§£å†³å®é€’å½’å±•å¼€é—®é¢˜
+#define RYREFLECT_EXPAND(x) x
 
-    // ¼ì²éÊäÈëµÄÓĞĞ§ĞÔ
-    if (N <= 0) {
-        std::cerr << "ÇëÊäÈëÒ»¸öÕıÕûÊı£¡" << std::endl;
-        return 1;
-    }
+)";
 
-    // ´ò¿ªÊä³öÎÄ¼ş
-    std::ofstream outfile("ryreflect_macros.h");
+// ä¸»ç¨‹åº
+int main()
+{
+    int paramCount;
+    std::cout << "è¯·è¾“å…¥éœ€è¦æ”¯æŒçš„æœ€å¤§å‚æ•°æ•°é‡ï¼š";
+    std::cin >> paramCount;
 
-    // ¼ì²éÎÄ¼şÊÇ·ñ³É¹¦´ò¿ª
-    if (!outfile.is_open()) {
-        std::cerr << "ÎŞ·¨´ò¿ªÊä³öÎÄ¼ş£¡" << std::endl;
-        return 1;
-    }
-
-    // Ğ´ÈëÎÄ¼şÍ·ĞÅÏ¢
-    outfile << "/**\n";
-    outfile << " * @author rayzhang\n";
-    outfile << " * @date " << getCurrentDate() << "\n";
-    outfile << " * @description ÊµÏÖ\n";
-    outfile << " */\n\n";
-
-    // ±ÜÃâÖØ¸´°üº¬
-    outfile << "#ifndef RYREFLECT_MACROS_H\n";
-    outfile << "#define RYREFLECT_MACROS_H\n\n";
-
-    // Ğ´Èë±ØÒªµÄºê¶¨Òå
-    outfile << "// ½«²ÎÊı×ª»»Îª×Ö·û´®\n";
-    outfile << "#define RYREFLECT_STRINGIZE(x) #x\n";
-    outfile << "// Õ¹¿ªºê²ÎÊı\n";
-    outfile << "#define RYREFLECT_EXPAND(x) x\n";
-    outfile << "// Á¬½ÓÁ½¸ö±êÊ¶·û\n";
-    outfile << "#define RYREFLECT_CONCAT(a, b) a##b\n\n";
-
-    // Ğ´ÈëRYREFLECT_RSEQ_Nºê£¬ÓÃÓÚ²ÎÊı¼ÆÊı
-    outfile << "// ·´ÏòĞòÁĞ£¬ÓÃÓÚ²ÎÊı¼ÆÊı\n";
-    outfile << "#define RYREFLECT_RSEQ_N() \\\n";
-    for (int i = N + 1; i >= 0; --i) {
-        outfile << "    " << i << (i > 0 ? "," : "") << (i % 10 == 0 ? " \\\n" : "");
-    }
-    outfile << "\n\n";
-
-    // Ğ´ÈëRYREFLECT_COUNT_ARGS_IMPLºê
-    outfile << "// »ñÈ¡²ÎÊıÊıÁ¿µÄÊµÏÖºê\n";
-    outfile << "#define RYREFLECT_COUNT_ARGS_IMPL(";
-    for (int i = 0; i <= N + 1; ++i) {
-        outfile << "_" << i;
-        if (i < N + 1) {
-            outfile << ",";
+    // ç”Ÿæˆ RYREFLECT_FOR_EACH_N å®
+    std::ostringstream macroStream;
+    for (int i = 1; i <= paramCount; ++i) {
+        macroStream << "#define RYREFLECT_FOR_EACH_" << i << "(action, x";
+        for (int j = 1; j < i; ++j) {
+            macroStream << ", x" << j;
         }
-    }
-    outfile << "N,...) N\n\n";
-
-    // Ğ´ÈëRYREFLECT_COUNT_ARGSºê
-    outfile << "// »ñÈ¡²ÎÊıÊıÁ¿µÄºê\n";
-    outfile << "#define RYREFLECT_COUNT_ARGS(...) \\\n";
-    outfile << "    RYREFLECT_EXPAND(RYREFLECT_COUNT_ARGS_IMPL(0, ## __VA_ARGS__, RYREFLECT_RSEQ_N()))\n\n";
-
-    // Ğ´ÈëRYREFLECT_FOR_EACHºê
-    outfile << "// RYREFLECT_FOR_EACHºê£¬¸ù¾İ²ÎÊıÊıÁ¿µ÷ÓÃ¶ÔÓ¦µÄRYREFLECT_FOR_EACH_Nºê\n";
-    outfile << "#define RYREFLECT_FOR_EACH(action, ...) \\\n";
-    outfile << "    RYREFLECT_EXPAND(RYREFLECT_CONCAT(RYREFLECT_FOR_EACH_, RYREFLECT_COUNT_ARGS(__VA_ARGS__)) (action, __VA_ARGS__))\n\n";
-
-    // Éú³ÉRYREFLECT_FOR_EACH_Nºê¶¨Òå
-    for (int i = 1; i <= N; ++i) {
-        if (i == 1) {
-            outfile << "#define RYREFLECT_FOR_EACH_" << i << "(action, x1) \\\n";
-            outfile << "    action(x1)\n\n";
+        macroStream << ") action(x)";
+        for (int j = 1; j < i; ++j) {
+            macroStream << ", RYREFLECT_EXPAND(RYREFLECT_FOR_EACH_1(action, x" << j << "))";
         }
-        else {
-            outfile << "#define RYREFLECT_FOR_EACH_" << i << "(action, x1, ...) \\\n";
-            outfile << "    action(x1), RYREFLECT_FOR_EACH_" << (i - 1) << "(action, __VA_ARGS__)\n\n";
-        }
+        macroStream << "\n";
     }
 
-    // Ğ´ÈëRYREFLECT_REFLECTABLEºê
-    outfile << "// ¶¨ÒåRYREFLECT_REFLECTABLEºê£¬ÓÃÓÚÔÚ½á¹¹ÌåÖĞÉùÃ÷·´ÉäËùĞèµÄ³ÉÔ±º¯Êı\n";
-    outfile << "#define RYREFLECT_REFLECTABLE(...) \\\n";
-    outfile << "    auto getMemberValues() { \\\n";
-    outfile << "        return std::tie(__VA_ARGS__); \\\n";
-    outfile << "    } \\\n";
-    outfile << "    constexpr static auto getMemberNames() { \\\n";
-    outfile << "        return std::make_tuple(RYREFLECT_FOR_EACH(RYREFLECT_STRINGIZE, __VA_ARGS__)); \\\n";
-    outfile << "    }\n\n";
+    // ç”Ÿæˆ RYREFLECT_GET_MACRO å’Œ RYREFLECT_FOR_EACH å®
+    macroStream << "\n// è·å–å¯å˜å‚æ•°çš„æ•°é‡ï¼Œé€‰æ‹©å¯¹åº”çš„RYREFLECT_FOR_EACH_Nå®\n";
+    macroStream << "#define RYREFLECT_GET_MACRO(_1";
+    for (int i = 2; i <= paramCount; ++i) {
+        macroStream << ", _" << i;
+    }
+    macroStream << ", NAME, ...) NAME\n\n";
 
-    // ½áÊøifndef
-    outfile << "#endif // RYREFLECT_MACROS_H\n";
+    macroStream << "// å®šä¹‰RYREFLECT_FOR_EACHå®ï¼Œæ ¹æ®å‚æ•°æ•°é‡è°ƒç”¨å¯¹åº”çš„å®\n";
+    macroStream << "#define RYREFLECT_FOR_EACH(action, ...) \\\n";
+    macroStream << "    RYREFLECT_EXPAND(RYREFLECT_GET_MACRO(__VA_ARGS__";
+    for (int i = paramCount; i >= 1; --i) {
+        macroStream << ", RYREFLECT_FOR_EACH_" << i;
+    }
+    macroStream << ")(action, __VA_ARGS__))\n\n";
 
-    // ¹Ø±ÕÎÄ¼ş
-    outfile.close();
+    // å°†ç”Ÿæˆçš„å®ä¸æ–‡ä»¶å¤´éƒ¨å†…å®¹åˆå¹¶
+    std::string fullContent = header + macroStream.str();
 
-    std::cout << "ºê¶¨ÒåÒÑÉú³É²¢±£´æµ½ ryreflect_macros.h ÎÄ¼şÖĞ¡£" << std::endl;
+    // å°†å‰©ä½™çš„ä»£ç å†…å®¹è¿½åŠ 
+    fullContent += R"(// å®šä¹‰ä¸€ä¸ªé€šç”¨çš„JSONå€¼ç±»å‹
+#ifdef RY_USE_QT
+using JsonValue  = QJsonValue;
+using JsonObject = QJsonObject;
+using JsonArray  = QJsonArray;
+#else
+// å¦‚æœä¸ä½¿ç”¨Qtï¼Œè¿™é‡Œå¯ä»¥å®šä¹‰è‡ªå·±çš„JSONç±»å‹æˆ–ä½¿ç”¨å…¶ä»–åº“
+struct JsonValue
+{
+    std::variant<std::nullptr_t, bool, int, double, std::string, std::vector<JsonValue>, std::map<std::string, JsonValue>> value;
+};
+using JsonObject = std::map<std::string, JsonValue>;
+using JsonArray  = std::vector<JsonValue>;
+#endif
+
+//  å°†åŸºæœ¬ç±»å‹è½¬æ¢ä¸ºJsonValueçš„è¾…åŠ©å‡½æ•°
+template <typename T>
+JsonValue toJsonValue(const T& value)
+{
+    if constexpr (std::is_same_v<T, std::string>) {
+#ifdef RY_USE_QT
+        return QJsonValue(QString::fromStdString(value));
+#else
+        return JsonValue{value};
+#endif
+    }
+    else if constexpr (std::is_arithmetic_v<T>) {
+#ifdef RY_USE_QT
+        return QJsonValue(value);
+#else
+        return JsonValue{value};
+#endif
+    }
+    else if constexpr (ForEachable<T>) {
+        // å¯¹äºå¤æ‚ç±»å‹ï¼Œè°ƒç”¨å…¶ toJson æ–¹æ³•
+        return value.toJson();
+    }
+    else {
+        static_assert(always_false<T>, "Unsupported type in toJsonValue");
+    }
+}
+
+// æ–°å¢ï¼šä»JsonValueè½¬æ¢ä¸ºåŸºæœ¬ç±»å‹çš„è¾…åŠ©å‡½æ•°
+template <typename T>
+T fromJsonValue(const JsonValue& jsonValue)
+{
+    if constexpr (std::is_same_v<T, std::string>) {
+#ifdef RY_USE_QT
+        return jsonValue.toString().toStdString();
+#else
+        return std::get<std::string>(jsonValue.value);
+#endif
+    }
+    else if constexpr (std::is_same_v<T, int>) {
+#ifdef RY_USE_QT
+        return jsonValue.toInt();
+#else
+        return std::get<int>(jsonValue.value);
+#endif
+    }
+    else if constexpr (std::is_same_v<T, double>) {
+#ifdef RY_USE_QT
+        return jsonValue.toDouble();
+#else
+        return std::get<double>(jsonValue.value);
+#endif
+    }
+    else if constexpr (std::is_same_v<T, bool>) {
+#ifdef RY_USE_QT
+        return jsonValue.toBool();
+#else
+        return std::get<bool>(jsonValue.value);
+#endif
+    }
+    else if constexpr (ForEachable<T>) {
+        // å¯¹äºå¤æ‚ç±»å‹ï¼Œè°ƒç”¨å…¶é™æ€ fromJson æ–¹æ³•
+#ifdef RY_USE_QT
+        return T::fromJson(jsonValue.toObject());
+#else
+        return T::fromJson(std::get<JsonObject>(jsonValue.value));
+#endif
+    }
+    else {
+        static_assert(always_false<T>, "Unsupported type in fromJsonValue");
+    }
+}
+// å®šä¹‰RY_REFLECTABLEå®ï¼Œç”¨äºåœ¨ç»“æ„ä½“ä¸­å£°æ˜åå°„æ‰€éœ€çš„æˆå‘˜å‡½æ•°
+#define RY_REFLECTABLE(TypeName, ...)                                                  \
+    auto getMemberValues()                                                             \
+    {                                                                                  \
+        return std::tie(__VA_ARGS__);                                                  \
+    }                                                                                  \
+    auto getMemberValues() const                                                       \
+    {                                                                                  \
+        return std::tie(__VA_ARGS__);                                                  \
+    }                                                                                  \
+    constexpr static auto getMemberNames()                                             \
+    {                                                                                  \
+        return std::make_tuple(RYREFLECT_FOR_EACH(RYREFLECT_STRINGIZE, __VA_ARGS__));  \
+    }                                                                                  \
+    RyReflect::JsonObject toJson() const                                               \
+    {                                                                                  \
+        RyReflect::JsonObject json;                                                    \
+        try {                                                                          \
+            RyReflect::forEach(*this, [&json](const auto& name, const auto& value) {   \
+                json[name] = RyReflect::toJsonValue(value);                            \
+            });                                                                        \
+        }                                                                              \
+        catch (const std::exception& e) {                                              \
+            std::cerr << "Error in toJson: " << e.what() << std::endl;                 \
+            throw;                                                                     \
+        }                                                                              \
+        return json;                                                                   \
+    }                                                                                  \
+    static TypeName fromJson(const RyReflect::JsonObject& json)                        \
+    {                                                                                  \
+        TypeName obj;                                                                  \
+        try {                                                                          \
+            RyReflect::forEach(obj, [&json](const auto& name, auto& value) {           \
+                if (json.contains(name)) {                                             \
+                    value = RyReflect::fromJsonValue<std::remove_reference_t<decltype(value)>>(json.value(name)); \
+                }                                                                      \
+                else {                                                                 \
+                    std::cerr << "Warning: Key '" << name << "' not found in JSON" << std::endl; \
+                }                                                                      \
+            });                                                                        \
+        }                                                                              \
+        catch (const std::exception& e) {                                              \
+            std::cerr << "Error in fromJson: " << e.what() << std::endl;               \
+            throw;                                                                     \
+        }                                                                              \
+        return obj;                                                                    \
+    }
+
+} // namespace RyReflect
+)";
+
+    // å°†ç”Ÿæˆçš„å†…å®¹å†™å…¥æ–‡ä»¶
+    std::ofstream outFile("RyReflect.h");
+    if (outFile.is_open()) {
+        outFile << fullContent;
+        outFile.close();
+        std::cout << "ä»£ç æ–‡ä»¶å·²ç”Ÿæˆï¼šRyReflect.h" << std::endl;
+    }
+    else {
+        std::cerr << "æ— æ³•åˆ›å»ºæ–‡ä»¶ï¼" << std::endl;
+    }
 
     return 0;
 }
