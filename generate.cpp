@@ -158,88 +158,116 @@ template <typename Container>
 JsonArray toJsonArray(const Container& container);
 
 //  将基本类型转换为JsonValue的辅助函数
-template <typename T>
-JsonValue toJsonValue(const T& value)
-{
-    if constexpr (std::is_same_v<T, std::string>) {
+    //  将基本类型转换为JsonValue的辅助函数
+    template <typename T>
+    JsonValue toJsonValue(const T& value)
+    {
+        if constexpr (std::is_same_v<T, std::string>) {
 #ifdef RY_USE_QT
-        return QJsonValue(QString::fromStdString(value));
+            return QJsonValue(QString::fromStdString(value));
 #else
-        return JsonValue{value};
+            return JsonValue{ value };
 #endif
-    }
-    else if constexpr (std::is_arithmetic_v<T>) {
+        }
 #ifdef RY_USE_QT
-        return QJsonValue(value);
-#else
-        return JsonValue{value};
+        else if constexpr (std::is_same_v<T, QString>) {
+            return value;
+        }
+        else if constexpr (std::is_same_v<T, QByteArray>) {
+            return QString(value);
+        }
 #endif
+        else if constexpr (std::is_arithmetic_v<T> || std::is_same_v<T, const char*>) {
+#ifdef RY_USE_QT
+            return QJsonValue(value);
+#else
+            return JsonValue{ value };
+#endif
+        }
+        else if constexpr (is_container<T>::value) {
+            // 对于容器，调用 toJsonArray
+            return toJsonArray(value);
+        }
+        else if constexpr (ForEachable<T>) {
+            // 对于复杂类型，调用其 toJson 方法
+            return value.toJson();
+        }
+        else {
+            static_assert(always_false<T>, "Unsupported type in toJsonValue");
+        }
     }
-    else if constexpr (is_container<T>::value) {
-        // 对于容器，调用 toJsonArray
-        return toJsonArray(value);
-    }
-    else if constexpr (ForEachable<T>) {
-        // 对于复杂类型，调用其 toJson 方法
-        return value.toJson();
-    }
-    else {
-        static_assert(always_false<T>, "Unsupported type in toJsonValue");
-    }
-}
 
-// 新增：从JsonValue转换为基本类型的辅助函数
-template <typename T>
-T fromJsonValue(const JsonValue& jsonValue)
-{
-    if constexpr (std::is_same_v<T, std::string>) {
+    // 从JsonValue转换为基本类型的辅助函数
+    template <typename T>
+    T fromJsonValue(const JsonValue& jsonValue)
+    {
+        if constexpr (std::is_same_v<T, std::string>) {
 #ifdef RY_USE_QT
-        return jsonValue.toString().toStdString();
+            return jsonValue.toString().toStdString();
 #else
-        return std::get<std::string>(jsonValue.value);
+            return std::get<std::string>(jsonValue.value);
+#endif
+        }
+#ifdef RY_USE_QT
+        else if constexpr (std::is_same_v<T, QString>) {
+            return jsonValue.toString();
+        }
+        else if constexpr (std::is_same_v<T, QByteArray>) {
+            return jsonValue.toVariant().toByteArray();
+        }
+#endif
+        else if constexpr (std::is_same_v<T, int>) {
+#ifdef RY_USE_QT
+            return jsonValue.toInt();
+#else
+            return std::get<int>(jsonValue.value);
+#endif
+        }
+        else if constexpr (std::is_same_v<T, double>) {
+#ifdef RY_USE_QT
+            return jsonValue.toDouble();
+#else
+            return std::get<double>(jsonValue.value);
+#endif
+        }
+        else if constexpr (std::is_same_v<T, bool>) {
+#ifdef RY_USE_QT
+            return jsonValue.toBool();
+#else
+            return std::get<bool>(jsonValue.value);
+#endif
+        }
+        else if constexpr (ForEachable<T>) {
+            // 对于复杂类型，调用其静态 fromJson 方法
+#ifdef RY_USE_QT
+            return T::fromJson(jsonValue.toObject());
+#else
+            return T::fromJson(std::get<JsonObject>(jsonValue.value));
+#endif
+        }
+        else if constexpr (is_container<T>::value) {
+            // 对于容器，调用 fromJsonArray
+#ifdef RY_USE_QT
+            return fromJsonArray<T>(jsonValue.toArray());
+#else
+            return fromJsonArray<T>(std::get<JsonArray>(jsonValue.value));
+#endif
+        }
+        else {
+            auto typeName = std::string(typeid(T).name());
+            static_assert(always_false<T>, "Unsupported type in fromJsonValue: ");
+        }
+    }
+
+    // 对于 int64_t
+    template <>
+    inline int64_t fromJsonValue<int64_t>(const JsonValue& value) {
+#ifdef RY_USE_QT
+        return value.toInteger();
+#else
+        return value.toInt(); // 根据 JsonValue 的实际实现
 #endif
     }
-    else if constexpr (std::is_same_v<T, int>) {
-#ifdef RY_USE_QT
-        return jsonValue.toInt();
-#else
-        return std::get<int>(jsonValue.value);
-#endif
-    }
-    else if constexpr (std::is_same_v<T, double>) {
-#ifdef RY_USE_QT
-        return jsonValue.toDouble();
-#else
-        return std::get<double>(jsonValue.value);
-#endif
-    }
-    else if constexpr (std::is_same_v<T, bool>) {
-#ifdef RY_USE_QT
-        return jsonValue.toBool();
-#else
-        return std::get<bool>(jsonValue.value);
-#endif
-    }
-    else if constexpr (ForEachable<T>) {
-        // 对于复杂类型，调用其静态 fromJson 方法
-#ifdef RY_USE_QT
-        return T::fromJson(jsonValue.toObject());
-#else
-        return T::fromJson(std::get<JsonObject>(jsonValue.value));
-#endif
-    }
-    else if constexpr (is_container<T>::value) {
-        // 对于容器，调用 fromJsonArray
-#ifdef RY_USE_QT
-        return fromJsonArray<T>(jsonValue.toArray());
-#else
-        return fromJsonArray<T>(std::get<JsonArray>(jsonValue.value));
-#endif
-    }
-    else {
-        static_assert(always_false<T>, "Unsupported type in fromJsonValue");
-    }
-}
 
 // 将数组转换为JsonArray的辅助函数
 template <typename Container>

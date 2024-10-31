@@ -6,8 +6,8 @@
 #include "RyReflect.h"
 #include <string>
 #include <iostream>
-#include <QJsonDocument>
 #include <set>
+#include <list>
 
 void testForEach()
 {
@@ -53,7 +53,7 @@ void testJson()
         std::string teamName;
         std::vector<Person> memberVector;
         std::list<Person> memberList;
-        QVector<std::string> memberNames;
+        std::vector<std::string> memberNames;
 
         RY_REFLECTABLE(Team, teamName, memberVector, memberList, memberNames)
     };
@@ -62,7 +62,7 @@ void testJson()
     Person person2{ "Bob", 25 };
     std::vector personVector{ person1, person2 };
     std::list personList{ person1, person2 };
-    QVector<std::string> nameSet{ "Alice", "Bob" };
+    std::vector<std::string> nameSet{ "Alice", "Bob" };
 
     Team team{ "Developers", personVector, personList, nameSet };
 
@@ -76,11 +76,7 @@ void testJson()
     QString jsonString = doc.toJson(QJsonDocument::Indented);
     std::cout << jsonString.toStdString() << std::endl;
 #else
-    // 简单地输出 JsonObject，实际应用中应实现 JsonObject 到字符串的转换
-    // 这里为了示例，直接输出键值对
-    for (const auto& [key, value] : teamJson) {
-        std::cout << key << ": ... " << std::endl; // 简化输出
-    }
+    // todo: implement your json output
 #endif
 
     // 反序列化回对象

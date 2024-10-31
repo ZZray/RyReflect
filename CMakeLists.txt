@@ -8,7 +8,11 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT_DIR}/${C
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT_DIR}/${CMAKE_BUILD_TYPE}/LIBRARY/)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${OUTPUT_DIR}/${CMAKE_BUILD_TYPE}/LIBRARY/)
 # 添加选项以启用或禁用Qt支持
-set(USE_QT ON)
+set(USE_QT OFF)
+
+# 添加可执行文件
+add_executable(${PROJECT_NAME} main.cpp RyReflect.h)
+add_executable(Generate_${PROJECT_NAME} "generate.cpp")
 
 if(USE_QT)
     message("Enable Qt support")
@@ -21,11 +25,10 @@ if(USE_QT)
 
     # 添加Qt定义
     add_definitions(-DRY_USE_QT)
+else()
+    target_sources(${PROJECT_NAME} PRIVATE RyJson.cpp RyJson.h)
 endif()
 
-# 添加可执行文件
-add_executable(${PROJECT_NAME} main.cpp RyReflect.h)
-add_executable(Generate_${PROJECT_NAME} "generate.cpp")
 
 if(USE_QT)
     # 链接Qt库

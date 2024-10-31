@@ -19,6 +19,8 @@
 #include <QJsonValue>
 #include <QString>
 #include <QJsonDocument>
+#else
+#include "RyJson.h"
 #endif
 
 namespace RyReflect
@@ -850,12 +852,9 @@ namespace RyReflect
     using JsonArray = QJsonArray;
 #else
 // 如果不使用Qt，这里可以定义自己的JSON类型或使用其他库
-    struct JsonValue
-    {
-        std::variant<std::nullptr_t, bool, int, double, std::string, std::vector<JsonValue>, std::map<std::string, JsonValue>> value;
-    };
-    using JsonObject = std::map<std::string, JsonValue>;
-    using JsonArray = std::vector<JsonValue>;
+    using JsonValue = RyJson;
+    using JsonObject = RyJson;
+    using JsonArray = RyJsonArray;
 #endif
 
     // 前置声明
@@ -912,7 +911,7 @@ namespace RyReflect
 #ifdef RY_USE_QT
             return jsonValue.toString().toStdString();
 #else
-            return std::get<std::string>(jsonValue.value);
+            return jsonValue.toString();
 #endif
         }
 #ifdef RY_USE_QT
@@ -924,41 +923,21 @@ namespace RyReflect
         }
 #endif
         else if constexpr (std::is_same_v<T, int>) {
-#ifdef RY_USE_QT
-            return jsonValue.toInt();
-#else
-            return std::get<int>(jsonValue.value);
-#endif
+            return jsonValue.toInt32();
         }
         else if constexpr (std::is_same_v<T, double>) {
-#ifdef RY_USE_QT
             return jsonValue.toDouble();
-#else
-            return std::get<double>(jsonValue.value);
-#endif
         }
         else if constexpr (std::is_same_v<T, bool>) {
-#ifdef RY_USE_QT
             return jsonValue.toBool();
-#else
-            return std::get<bool>(jsonValue.value);
-#endif
         }
         else if constexpr (ForEachable<T>) {
             // 对于复杂类型，调用其静态 fromJson 方法
-#ifdef RY_USE_QT
             return T::fromJson(jsonValue.toObject());
-#else
-            return T::fromJson(std::get<JsonObject>(jsonValue.value));
-#endif
         }
         else if constexpr (is_container<T>::value) {
             // 对于容器，调用 fromJsonArray
-#ifdef RY_USE_QT
             return fromJsonArray<T>(jsonValue.toArray());
-#else
-            return fromJsonArray<T>(std::get<JsonArray>(jsonValue.value));
-#endif
         }
         else {
             auto typeName = std::string(typeid(T).name());
@@ -1032,7 +1011,7 @@ namespace RyReflect
         TypeName obj;                                                                                                                                                                                  \
         try {                                                                                                                                                                                          \
             RyReflect::forEach(obj, [&json](const auto& name, auto& value) {                                                                                                                           \
-                if (json.contains(name)) {                                                                                                                                                             \
+                if (json.contains(name)) {\
                     value = RyReflect::fromJsonValue<std::remove_reference_t<decltype(value)>>(json.value(name));                                                                                      \
                 }                                                                                                                                                                                      \
                 else {                                                                                                                                                                                 \
@@ -1046,5 +1025,5 @@ namespace RyReflect
         }                                                                                                                                                                                              \
         return obj;                                                                                                                                                                                    \
     }
-
+    // 如果你不用Qt，那么可以修改fromJson的json.value为你的json实现
 } // namespace RyReflect
